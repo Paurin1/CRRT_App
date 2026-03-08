@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#1565C0" />
+  <meta name="description" content="CRRT App – Continuous Renal Replacement Therapy data management" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="CRRT App" />
+  <title>CRRT App</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <!-- App Header -->
+  <header class="app-header">
+    <div class="header-content">
+      <div class="header-left">
+        <span class="app-title">CRRT App</span>
+      </div>
+      <div class="header-right">
+        <div id="auth-section">
+          <button id="sign-in-btn" class="btn btn-outline-white" style="display:none;">Sign In</button>
+          <div id="user-info" style="display:none;">
+            <img id="user-avatar" src="" alt="User" class="avatar" />
+            <span id="user-name" class="user-name"></span>
+            <button id="sign-out-btn" class="btn btn-outline-white btn-sm">Sign Out</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Config Modal (shown when Spreadsheet ID not configured) -->
+  <div id="config-modal" class="modal" style="display:none;">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+      <h2>Configure Google Sheets</h2>
+      <p>Enter your Google Sheets Spreadsheet ID and Google API credentials to get started.</p>
+      <div class="form-group">
+        <label for="spreadsheet-id-input">Spreadsheet ID</label>
+        <input type="text" id="spreadsheet-id-input" class="form-control"
+               placeholder="e.g. 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms" />
+        <small class="form-hint">Found in your Google Sheets URL between /d/ and /edit</small>
+      </div>
+      <div class="form-group">
+        <label for="client-id-input">Google OAuth Client ID</label>
+        <input type="text" id="client-id-input" class="form-control"
+               placeholder="e.g. 123456789-abcde.apps.googleusercontent.com" />
+        <small class="form-hint">From Google Cloud Console → APIs &amp; Services → Credentials</small>
+      </div>
+      <div class="form-group">
+        <label for="api-key-input">Google API Key</label>
+        <input type="text" id="api-key-input" class="form-control"
+               placeholder="e.g. AIzaSy..." />
+        <small class="form-hint">From Google Cloud Console → APIs &amp; Services → Credentials</small>
+      </div>
+      <div class="modal-actions">
+        <button id="save-config-btn" class="btn btn-primary">Save Configuration</button>
+      </div>
+      <div id="config-error" class="alert alert-error" style="display:none;"></div>
+    </div>
+  </div>
+
+  <!-- Selected Patient Banner -->
+  <div id="patient-banner" class="patient-banner" style="display:none;">
+    <span class="patient-banner-label">Selected Patient:</span>
+    <span id="banner-patient-name" class="patient-banner-name"></span>
+    <button id="change-patient-btn" class="btn btn-xs btn-outline-white">Change</button>
+  </div>
+
+  <!-- Main Content -->
+  <main class="main-content" id="main-content" style="display:none;">
+
+    <!-- Tab 1: Patient Selection -->
+    <section id="tab-patients" class="tab-content active">
+      <div class="section-header">
+        <h2>Select Patient</h2>
+        <button id="refresh-patients-btn" class="btn btn-icon" title="Refresh patient list">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <polyline points="1 20 1 14 7 14"></polyline>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+          </svg>
+        </button>
+      </div>
+
+      <div class="search-bar">
+        <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="search" id="patient-search" class="search-input" placeholder="Search patients…" />
+      </div>
+
+      <div id="patients-loading" class="loading-state" style="display:none;">
+        <div class="spinner"></div>
+        <p>Loading patients…</p>
+      </div>
+
+      <div id="patients-empty" class="empty-state" style="display:none;">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+          <circle cx="9" cy="7" r="4"></circle>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+        </svg>
+        <p>No patients found.<br/>Make sure your spreadsheet has a <strong>Patients</strong> sheet.</p>
+      </div>
+
+      <ul id="patient-list" class="patient-list"></ul>
+    </section>
+
+    <!-- Tab 2: CRRT Parameters Entry -->
+    <section id="tab-entry" class="tab-content">
+      <div class="section-header">
+        <h2>CRRT Parameters</h2>
+      </div>
+
+      <div id="no-patient-selected" class="info-banner">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <span>Please select a patient from the <strong>Patients</strong> tab first.</span>
+      </div>
+
+      <form id="crrt-form" class="crrt-form" style="display:none;" novalidate>
+        <div class="form-card">
+          <h3 class="form-card-title">Date &amp; Time</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="entry-date">Date <span class="required">*</span></label>
+              <input type="date" id="entry-date" name="date" class="form-control" required />
+            </div>
+            <div class="form-group">
+              <label for="entry-time">Time <span class="required">*</span></label>
+              <input type="time" id="entry-time" name="time" class="form-control" required />
+            </div>
+          </div>
+        </div>
+
+        <div class="form-card">
+          <h3 class="form-card-title">Flow Rates</h3>
+          <div class="form-group">
+            <label for="blood-flow">Blood Flow Rate (Qb) <span class="unit">mL/min</span></label>
+            <input type="number" id="blood-flow" name="bloodFlow" class="form-control"
+                   min="0" max="500" step="1" placeholder="e.g. 150" />
+          </div>
+          <div class="form-group">
+            <label for="dialysate-flow">Dialysate Flow Rate (Qd) <span class="unit">mL/h</span></label>
+            <input type="number" id="dialysate-flow" name="dialysateFlow" class="form-control"
+                   min="0" max="5000" step="10" placeholder="e.g. 1000" />
+          </div>
+          <div class="form-group">
+            <label for="substitute-flow">Substitute Flow Rate (Qs) <span class="unit">mL/h</span></label>
+            <input type="number" id="substitute-flow" name="substituteFlow" class="form-control"
+                   min="0" max="5000" step="10" placeholder="e.g. 1000" />
+          </div>
+          <div class="form-group">
+            <label for="effluent-rate">Effluent Rate <span class="unit">mL/h</span></label>
+            <input type="number" id="effluent-rate" name="effluentRate" class="form-control"
+                   min="0" max="8000" step="10" placeholder="e.g. 2000" />
+          </div>
+          <div class="form-group">
+            <label for="net-fluid-removal">Net Fluid Removal <span class="unit">mL/h</span></label>
+            <input type="number" id="net-fluid-removal" name="netFluidRemoval" class="form-control"
+                   min="-500" max="1000" step="1" placeholder="e.g. 100" />
+          </div>
+        </div>
+
+        <div class="form-card">
+          <h3 class="form-card-title">Replacement Fluid</h3>
+          <div class="form-group">
+            <label for="replacement-mode">Replacement Mode</label>
+            <select id="replacement-mode" name="replacementMode" class="form-control">
+              <option value="">— Select —</option>
+              <option value="pre">Pre-filter</option>
+              <option value="post">Post-filter</option>
+              <option value="pre-post">Pre + Post filter</option>
+            </select>
+          </div>
+          <div id="pre-post-fields" style="display:none;">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="pre-fraction">Pre-filter fraction <span class="unit">%</span></label>
+                <input type="number" id="pre-fraction" name="preFraction" class="form-control"
+                       min="0" max="100" step="1" placeholder="e.g. 30" />
+              </div>
+              <div class="form-group">
+                <label for="post-fraction">Post-filter fraction <span class="unit">%</span></label>
+                <input type="number" id="post-fraction" name="postFraction" class="form-control"
+                       min="0" max="100" step="1" placeholder="e.g. 70" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-card">
+          <h3 class="form-card-title">Anticoagulation</h3>
+          <div class="form-group">
+            <label for="anticoag-type">Type</label>
+            <select id="anticoag-type" name="anticoagType" class="form-control">
+              <option value="">— None —</option>
+              <option value="heparin">Heparin</option>
+              <option value="citrate">Citrate</option>
+              <option value="argatroban">Argatroban</option>
+              <option value="nafamostat">Nafamostat</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div id="anticoag-dose-group" style="display:none;">
+            <div class="form-group">
+              <label for="anticoag-dose">Dose <span class="unit">units/h</span></label>
+              <input type="number" id="anticoag-dose" name="anticoagDose" class="form-control"
+                     min="0" step="0.1" placeholder="e.g. 500" />
+            </div>
+          </div>
+        </div>
+
+        <div class="form-card">
+          <h3 class="form-card-title">Pressures</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="access-pressure">Access Pressure <span class="unit">mmHg</span></label>
+              <input type="number" id="access-pressure" name="accessPressure" class="form-control"
+                     min="-300" max="0" step="1" placeholder="e.g. -150" />
+            </div>
+            <div class="form-group">
+              <label for="return-pressure">Return Pressure <span class="unit">mmHg</span></label>
+              <input type="number" id="return-pressure" name="returnPressure" class="form-control"
+                     min="0" max="300" step="1" placeholder="e.g. 100" />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="filter-pressure">Filter Pressure <span class="unit">mmHg</span></label>
+              <input type="number" id="filter-pressure" name="filterPressure" class="form-control"
+                     min="0" max="300" step="1" placeholder="e.g. 50" />
+            </div>
+            <div class="form-group">
+              <label for="effluent-pressure">Effluent Pressure <span class="unit">mmHg</span></label>
+              <input type="number" id="effluent-pressure" name="effluentPressure" class="form-control"
+                     min="-300" max="0" step="1" placeholder="e.g. -50" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="tmp">Transmembrane Pressure (TMP) <span class="unit">mmHg</span></label>
+            <input type="number" id="tmp" name="tmp" class="form-control"
+                   min="0" max="400" step="1" placeholder="e.g. 80" />
+          </div>
+        </div>
+
+        <div class="form-card">
+          <h3 class="form-card-title">Notes</h3>
+          <div class="form-group">
+            <label for="notes">Clinical Notes</label>
+            <textarea id="notes" name="notes" class="form-control" rows="3"
+                      placeholder="Any relevant clinical observations…"></textarea>
+          </div>
+        </div>
+
+        <div id="form-error" class="alert alert-error" style="display:none;"></div>
+        <div id="form-success" class="alert alert-success" style="display:none;"></div>
+
+        <div class="form-actions">
+          <button type="button" id="clear-form-btn" class="btn btn-secondary">Clear</button>
+          <button type="submit" id="submit-btn" class="btn btn-primary">
+            <span class="btn-text">Save Entry</span>
+            <span class="btn-spinner" style="display:none;"><div class="spinner spinner-sm"></div></span>
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Tab 3: View Patient Data -->
+    <section id="tab-view" class="tab-content">
+      <div class="section-header">
+        <h2>Patient Data</h2>
+        <button id="refresh-data-btn" class="btn btn-icon" title="Refresh data">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <polyline points="1 20 1 14 7 14"></polyline>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+          </svg>
+        </button>
+      </div>
+
+      <div id="no-patient-selected-view" class="info-banner">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <span>Please select a patient from the <strong>Patients</strong> tab first.</span>
+      </div>
+
+      <div id="data-loading" class="loading-state" style="display:none;">
+        <div class="spinner"></div>
+        <p>Loading patient data…</p>
+      </div>
+
+      <div id="data-empty" class="empty-state" style="display:none;">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="16" y1="13" x2="8" y2="13"></line>
+          <line x1="16" y1="17" x2="8" y2="17"></line>
+          <polyline points="10 9 9 9 8 9"></polyline>
+        </svg>
+        <p>No data recorded yet for this patient.</p>
+        <button class="btn btn-primary btn-sm" id="add-first-entry-btn">Add First Entry</button>
+      </div>
+
+      <div id="data-container" style="display:none;">
+        <!-- Summary cards -->
+        <div id="summary-cards" class="summary-cards"></div>
+
+        <!-- Data table (horizontal scroll) -->
+        <div class="table-wrapper">
+          <table id="data-table" class="data-table">
+            <thead>
+              <tr>
+                <th class="sticky-col">Date/Time</th>
+                <th>Qb (mL/min)</th>
+                <th>Qd (mL/h)</th>
+                <th>Qs (mL/h)</th>
+                <th>Effluent (mL/h)</th>
+                <th>Net Fluid (mL/h)</th>
+                <th>Replacement</th>
+                <th>Anticoag</th>
+                <th>Dose</th>
+                <th>Access P (mmHg)</th>
+                <th>Return P (mmHg)</th>
+                <th>Filter P (mmHg)</th>
+                <th>TMP (mmHg)</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody id="data-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Bottom Navigation -->
+  <nav class="bottom-nav" id="bottom-nav" style="display:none;">
+    <button class="nav-item active" data-tab="patients">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+        <circle cx="9" cy="7" r="4"></circle>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+      </svg>
+      <span>Patients</span>
+    </button>
+    <button class="nav-item" data-tab="entry">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+      </svg>
+      <span>Entry</span>
+    </button>
+    <button class="nav-item" data-tab="view">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="7" height="7"></rect>
+        <rect x="14" y="3" width="7" height="7"></rect>
+        <rect x="14" y="14" width="7" height="7"></rect>
+        <rect x="3" y="14" width="7" height="7"></rect>
+      </svg>
+      <span>View</span>
+    </button>
+  </nav>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast" role="alert" aria-live="polite"></div>
+
+  <!-- Google Identity Services -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <!-- Google API Client -->
+  <script src="https://apis.google.com/js/api.js" async defer
+          onload="window.gapiLoaded = true; window.dispatchEvent(new Event('gapiloaded'))"></script>
+  <script src="js/sheets.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
