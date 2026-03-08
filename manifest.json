@@ -2,7 +2,7 @@
   "name": "CRRT App",
   "short_name": "CRRT",
   "description": "Continuous Renal Replacement Therapy data management app",
-  "start_url": "/",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#1565C0",
   "theme_color": "#1565C0",
