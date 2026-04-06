@@ -24,7 +24,7 @@
       </div>
       <div class="header-right">
         <div id="auth-section">
-          <button id="sign-in-btn" class="btn btn-outline-white" style="display:none;">Sign In</button>
+          <button id="sign-in-btn" class="btn btn-outline-white" style="display:none;">Zaloguj kontem Google</button>
           <div id="user-info" style="display:none;">
             <img id="user-avatar" src="" alt="User" class="avatar" />
             <span id="user-name" class="user-name"></span>
@@ -34,37 +34,6 @@
       </div>
     </div>
   </header>
-
-  <!-- Config Modal (shown when Spreadsheet ID not configured) -->
-  <div id="config-modal" class="modal" style="display:none;">
-    <div class="modal-backdrop"></div>
-    <div class="modal-content">
-      <h2>Configure Google Sheets</h2>
-      <p>Enter your Google Sheets Spreadsheet ID and Google API credentials to get started.</p>
-      <div class="form-group">
-        <label for="spreadsheet-id-input">Spreadsheet ID</label>
-        <input type="text" id="spreadsheet-id-input" class="form-control"
-               placeholder="e.g. 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms" />
-        <small class="form-hint">Found in your Google Sheets URL between /d/ and /edit</small>
-      </div>
-      <div class="form-group">
-        <label for="client-id-input">Google OAuth Client ID</label>
-        <input type="text" id="client-id-input" class="form-control"
-               placeholder="e.g. 123456789-abcde.apps.googleusercontent.com" />
-        <small class="form-hint">From Google Cloud Console → APIs &amp; Services → Credentials</small>
-      </div>
-      <div class="form-group">
-        <label for="api-key-input">Google API Key</label>
-        <input type="text" id="api-key-input" class="form-control"
-               placeholder="e.g. AIzaSy..." />
-        <small class="form-hint">From Google Cloud Console → APIs &amp; Services → Credentials</small>
-      </div>
-      <div class="modal-actions">
-        <button id="save-config-btn" class="btn btn-primary">Save Configuration</button>
-      </div>
-      <div id="config-error" class="alert alert-error" style="display:none;"></div>
-    </div>
-  </div>
 
   <!-- Selected Patient Banner -->
   <div id="patient-banner" class="patient-banner" style="display:none;">

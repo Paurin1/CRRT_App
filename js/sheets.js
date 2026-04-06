@@ -7,10 +7,9 @@
  *  Columns: PatientID | Name | DateOfBirth | Ward | Diagnosis | AdmissionDate | Notes
  *
  *  Sheet: "CRRT_Data"
- *  Columns: PatientID | Date | Time | BloodFlow | DialysateFlow | SubstituteFlow |
- *           EffluentRate | NetFluidRemoval | ReplacementMode | PreFraction | PostFraction |
- *           AnticoagType | AnticoagDose | AccessPressure | ReturnPressure |
- *           FilterPressure | EffluentPressure | TMP | Notes
+ *  Columns: PatientID | Date | Time | BloodFlow | SubstituteFlow | DialysateFlow |
+ *           CitrateDose | CalciumDose | Ultrafiltration | PostFilterCa | PatientCa |
+ *           DialysisDose | BE | HCO3 | pH | EnteredBy | Notes
  */
 
 const SHEETS_API_DISCOVERY = 'https://sheets.googleapis.com/$discovery/rest?version=v4';
@@ -20,15 +19,14 @@ const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
 const SheetsService = (() => {
   // Sheet / range constants
   const PATIENTS_RANGE = 'Patients!A2:G';
-  const CRRT_DATA_RANGE = 'CRRT_Data!A2:S';
-  const CRRT_DATA_APPEND_RANGE = 'CRRT_Data!A:S';
+  const CRRT_DATA_RANGE = 'CRRT_Data!A2:Q';
+  const CRRT_DATA_APPEND_RANGE = 'CRRT_Data!A:Q';
 
   const PATIENTS_HEADERS = ['PatientID', 'Name', 'DateOfBirth', 'Ward', 'Diagnosis', 'AdmissionDate', 'Notes'];
   const CRRT_HEADERS = [
-    'PatientID', 'Date', 'Time', 'BloodFlow', 'DialysateFlow', 'SubstituteFlow',
-    'EffluentRate', 'NetFluidRemoval', 'ReplacementMode', 'PreFraction', 'PostFraction',
-    'AnticoagType', 'AnticoagDose', 'AccessPressure', 'ReturnPressure',
-    'FilterPressure', 'EffluentPressure', 'TMP', 'Notes'
+    'PatientID', 'Date', 'Time', 'BloodFlow', 'SubstituteFlow', 'DialysateFlow',
+    'CitrateDose', 'CalciumDose', 'Ultrafiltration', 'PostFilterCa', 'PatientCa',
+    'DialysisDose', 'BE', 'HCO3', 'pH', 'EnteredBy', 'Notes'
   ];
 
   let _spreadsheetId = null;
@@ -146,21 +144,19 @@ const SheetsService = (() => {
         date:            row[1]  || '',
         time:            row[2]  || '',
         bloodFlow:       row[3]  || '',
-        dialysateFlow:   row[4]  || '',
-        substituteFlow:  row[5]  || '',
-        effluentRate:    row[6]  || '',
-        netFluidRemoval: row[7]  || '',
-        replacementMode: row[8]  || '',
-        preFraction:     row[9]  || '',
-        postFraction:    row[10] || '',
-        anticoagType:    row[11] || '',
-        anticoagDose:    row[12] || '',
-        accessPressure:  row[13] || '',
-        returnPressure:  row[14] || '',
-        filterPressure:  row[15] || '',
-        effluentPressure:row[16] || '',
-        tmp:             row[17] || '',
-        notes:           row[18] || ''
+        substituteFlow:  row[4]  || '',
+        dialysateFlow:   row[5]  || '',
+        citrateDose:     row[6]  || '',
+        calciumDose:     row[7]  || '',
+        ultrafiltration: row[8]  || '',
+        postFilterCa:    row[9]  || '',
+        patientCa:       row[10] || '',
+        dialysisDose:    row[11] || '',
+        be:              row[12] || '',
+        hco3:            row[13] || '',
+        ph:              row[14] || '',
+        enteredBy:       row[15] || '',
+        notes:           row[16] || ''
       }))
       // Sort by date + time descending (most recent first)
       .sort((a, b) => {
@@ -184,20 +180,18 @@ const SheetsService = (() => {
       entry.date            || '',
       entry.time            || '',
       entry.bloodFlow       || '',
-      entry.dialysateFlow   || '',
       entry.substituteFlow  || '',
-      entry.effluentRate    || '',
-      entry.netFluidRemoval || '',
-      entry.replacementMode || '',
-      entry.preFraction     || '',
-      entry.postFraction    || '',
-      entry.anticoagType    || '',
-      entry.anticoagDose    || '',
-      entry.accessPressure  || '',
-      entry.returnPressure  || '',
-      entry.filterPressure  || '',
-      entry.effluentPressure|| '',
-      entry.tmp             || '',
+      entry.dialysateFlow   || '',
+      entry.citrateDose     || '',
+      entry.calciumDose     || '',
+      entry.ultrafiltration || '',
+      entry.postFilterCa    || '',
+      entry.patientCa       || '',
+      entry.dialysisDose    || '',
+      entry.be              || '',
+      entry.hco3            || '',
+      entry.ph              || '',
+      entry.enteredBy       || '',
       entry.notes           || ''
     ];
 

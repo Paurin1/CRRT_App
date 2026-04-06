@@ -8,7 +8,14 @@
    Configuration
    ============================================================ */
 const CONFIG_KEY = 'crrt_app_config';
-const DEMO_MODE = true;
+const AUTH_TOKEN_KEY = 'crrt_auth_token';
+const DEMO_MODE = false;
+const APP_CONFIG = {
+  // Opcjonalnie wpisz stale wartosci; jesli puste, uzyte zostana wartosci zapisane lokalnie.
+  spreadsheetId: '1hsWeExrncj8VzlBs5JGnLNjq1lGp0ZgGt8rP4qkMUCo',
+  clientId: '960349410634-eq43gumars9iulh99nc1bud6jnldifuo.apps.googleusercontent.com',
+  apiKey: 'AIzaSyC9yniKMo_Kks_-TUgQN0oXt9Swnx-RwcU'
+};
 
 const DEMO_PATIENTS = [
   {
@@ -53,6 +60,15 @@ function saveConfig(cfg) {
   localStorage.setItem(CONFIG_KEY, JSON.stringify(cfg));
 }
 
+function getRuntimeConfig() {
+  const stored = loadConfig();
+  return {
+    spreadsheetId: APP_CONFIG.spreadsheetId || stored.spreadsheetId || '',
+    clientId: APP_CONFIG.clientId || stored.clientId || '',
+    apiKey: APP_CONFIG.apiKey || stored.apiKey || ''
+  };
+}
+
 function getDemoEntriesKey(patientId) {
   return `crrt_demo_entries_${patientId}`;
 }
@@ -81,7 +97,8 @@ const state = {
   isSignedIn: false,
   gapiReady: false,
   gisReady: false,
-  tokenClient: null
+  tokenClient: null,
+  tokenRefreshTimer: null
 };
 
 /* ============================================================
@@ -197,17 +214,144 @@ function initGisClient(clientId) {
   state.tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: clientId,
     scope: SCOPES,
-    callback: (tokenResponse) => {
-      if (tokenResponse.error) {
-        showToast('Logowanie nie powiodlo sie: ' + tokenResponse.error, 'error');
-        return;
-      }
-      state.isSignedIn = true;
-      updateAuthUI();
-      onSignedIn();
-    }
+    callback: () => {}
   });
   state.gisReady = true;
+}
+
+function saveAuthToken(tokenResponse) {
+  if (!tokenResponse?.access_token) return;
+  const expiresIn = Number(tokenResponse.expires_in || 3600);
+  const expiresAt = Date.now() + expiresIn * 1000;
+  localStorage.setItem(
+    AUTH_TOKEN_KEY,
+    JSON.stringify({
+      access_token: tokenResponse.access_token,
+      expiresAt
+    })
+  );
+}
+
+function loadAuthToken() {
+  try {
+    const raw = localStorage.getItem(AUTH_TOKEN_KEY);
+    if (!raw) return null;
+    const token = JSON.parse(raw);
+    if (!token?.access_token || !token?.expiresAt) return null;
+    return token;
+  } catch {
+    return null;
+  }
+}
+
+function clearAuthToken() {
+  localStorage.removeItem(AUTH_TOKEN_KEY);
+}
+
+function clearTokenRefreshTimer() {
+  if (state.tokenRefreshTimer) {
+    clearTimeout(state.tokenRefreshTimer);
+    state.tokenRefreshTimer = null;
+  }
+}
+
+function scheduleTokenRefresh(expiresInSeconds) {
+  clearTokenRefreshTimer();
+  const safeExpiresIn = Number(expiresInSeconds || 3600);
+  const refreshInMs = Math.max(30000, (safeExpiresIn - 120) * 1000);
+  state.tokenRefreshTimer = setTimeout(async () => {
+    try {
+      await requestAccessToken('', { silent: true });
+    } catch {
+      clearAuthToken();
+      lockAppForAuth();
+      showToast('Sesja wygasla. Zaloguj sie ponownie.', 'error', 6000);
+    }
+  }, refreshInMs);
+}
+
+function lockAppForAuth() {
+  clearTokenRefreshTimer();
+  state.isSignedIn = false;
+  state.selectedPatient = null;
+  state.patients = [];
+  state.patientData = [];
+  try {
+    if (window.gapi?.client) {
+      gapi.client.setToken(null);
+    }
+  } catch {
+    // Ignore token reset errors.
+  }
+  updateAuthUI();
+  updatePatientBanner();
+  updateEntryTabVisibility();
+  updateViewTabVisibility();
+  dom.mainContent.style.display = 'none';
+  dom.bottomNav.style.display = 'none';
+}
+
+async function applySignedInSession(tokenResponse, options = {}) {
+  const { silent = false } = options;
+  gapi.client.setToken({ access_token: tokenResponse.access_token });
+  saveAuthToken(tokenResponse);
+  scheduleTokenRefresh(tokenResponse.expires_in);
+  state.isSignedIn = true;
+  updateAuthUI();
+  await onSignedIn({ silent });
+}
+
+function requestAccessToken(promptValue, options = {}) {
+  const { silent = false } = options;
+  return new Promise((resolve, reject) => {
+    if (!state.gisReady || !state.tokenClient) {
+      reject(new Error('GIS not ready'));
+      return;
+    }
+
+    state.tokenClient.callback = async (tokenResponse) => {
+      if (tokenResponse.error) {
+        if (!silent) {
+          showToast('Logowanie nie powiodlo sie: ' + tokenResponse.error, 'error');
+        }
+        reject(new Error(tokenResponse.error));
+        return;
+      }
+
+      try {
+        await applySignedInSession(tokenResponse, { silent });
+        resolve(tokenResponse);
+      } catch (err) {
+        reject(err);
+      }
+    };
+
+    state.tokenClient.requestAccessToken({ prompt: promptValue });
+  });
+}
+
+async function tryRestoreSession() {
+  const storedToken = loadAuthToken();
+
+  if (storedToken && storedToken.expiresAt > Date.now() + 60000) {
+    await applySignedInSession(
+      {
+        access_token: storedToken.access_token,
+        expires_in: Math.floor((storedToken.expiresAt - Date.now()) / 1000)
+      },
+      { silent: true }
+    );
+    return true;
+  }
+
+  clearAuthToken();
+
+  try {
+    await requestAccessToken('', { silent: true });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /* ============================================================
@@ -232,34 +376,39 @@ dom.signInBtn.addEventListener('click', () => {
     showToast('Logowanie nie jest jeszcze gotowe. Poczekaj chwile.', 'error');
     return;
   }
-  state.tokenClient.requestAccessToken({ prompt: 'consent' });
+
+  showToast('Wybierz konto Google, aby sie zalogowac.', '', 3000);
+  requestAccessToken('select_account').catch(() => {
+    // User might have closed the popup or denied consent.
+  });
 });
 
 dom.signOutBtn.addEventListener('click', () => {
-  const token = gapi.client.getToken();
-  if (token) {
-    google.accounts.oauth2.revoke(token.access_token, () => {
-      gapi.client.setToken(null);
-      state.isSignedIn = false;
-      state.selectedPatient = null;
-      state.patients = [];
-      state.patientData = [];
-      updateAuthUI();
-      updatePatientBanner();
-      dom.mainContent.style.display = 'none';
-      dom.bottomNav.style.display = 'none';
-      showToast('Wylogowano pomyslnie.');
-    });
+  const token = gapi.client.getToken() || loadAuthToken();
+  const finalizeSignOut = () => {
+    clearAuthToken();
+    lockAppForAuth();
+    showToast('Wylogowano pomyslnie.');
+  };
+
+  if (token?.access_token) {
+    google.accounts.oauth2.revoke(token.access_token, finalizeSignOut);
+    return;
   }
+
+  finalizeSignOut();
 });
 
 /* ============================================================
    After Sign-in
    ============================================================ */
-async function onSignedIn() {
+async function onSignedIn(options = {}) {
+  const { silent = false } = options;
   dom.mainContent.style.display = 'block';
   dom.bottomNav.style.display = 'flex';
-  showToast('Zalogowano pomyslnie.', 'success');
+  if (!silent) {
+    showToast('Zalogowano pomyslnie.', 'success');
+  }
 
   const cfg = loadConfig();
   SheetsService.setSpreadsheetId(cfg.spreadsheetId);
@@ -637,38 +786,6 @@ dom.refreshDataBtn.addEventListener('click', loadPatientData);
 dom.addFirstEntryBtn.addEventListener('click', () => switchTab('entry'));
 
 /* ============================================================
-   Configuration Modal
-   ============================================================ */
-function showConfigModal() {
-  const cfg = loadConfig();
-  if (cfg.spreadsheetId) dom.spreadsheetInput.value = cfg.spreadsheetId;
-  if (cfg.clientId) dom.clientIdInput.value = cfg.clientId;
-  if (cfg.apiKey) dom.apiKeyInput.value = cfg.apiKey;
-  dom.configModal.style.display = 'flex';
-}
-
-dom.saveConfigBtn.addEventListener('click', async () => {
-  dom.configError.style.display = 'none';
-
-  const spreadsheetId = dom.spreadsheetInput.value.trim();
-  const clientId      = dom.clientIdInput.value.trim();
-  const apiKey        = dom.apiKeyInput.value.trim();
-
-  if (!spreadsheetId || !clientId || !apiKey) {
-    dom.configError.textContent = 'Wszystkie pola sa wymagane.';
-    dom.configError.style.display = 'block';
-    return;
-  }
-
-  saveConfig({ spreadsheetId, clientId, apiKey });
-  SheetsService.setSpreadsheetId(spreadsheetId);
-  dom.configModal.style.display = 'none';
-
-  // Initialise APIs with the new config
-  await bootApis(clientId, apiKey);
-});
-
-/* ============================================================
    Boot Sequence
    ============================================================ */
 async function bootApis(clientId, apiKey) {
@@ -708,8 +825,11 @@ async function bootApis(clientId, apiKey) {
   }
 
   initGisClient(clientId);
-  dom.signInBtn.style.display = '';
-  showToast('Gotowe. Zaloguj sie, aby kontynuowac.', '', 4000);
+  const restored = await tryRestoreSession();
+  if (!restored) {
+    dom.signInBtn.style.display = '';
+    showToast('Gotowe. Zaloguj sie, aby kontynuowac.', '', 4000);
+  }
 }
 
 async function init() {
@@ -738,13 +858,19 @@ async function init() {
     return;
   }
 
-  const cfg = loadConfig();
+  if (dom.configModal) {
+    dom.configModal.style.display = 'none';
+  }
+
+  const cfg = getRuntimeConfig();
 
   if (!cfg.spreadsheetId || !cfg.clientId || !cfg.apiKey) {
-    // First run – show config modal
-    showConfigModal();
+    dom.signInBtn.style.display = 'none';
+    showToast('Brak konfiguracji aplikacji (Spreadsheet ID / Client ID / API Key). Ustaw je w APP_CONFIG w js/app.js.', 'error', 10000);
     return;
   }
+
+  saveConfig(cfg);
 
   SheetsService.setSpreadsheetId(cfg.spreadsheetId);
 

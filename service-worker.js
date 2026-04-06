@@ -1,4 +1,4 @@
-const CACHE_NAME = 'crrt-app-v1';
+const CACHE_NAME = 'crrt-app-v2';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -32,7 +32,7 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch event – network-first for API calls, cache-first for static assets
+// Fetch event – network-first for app shell, cache-first for static assets
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
@@ -42,6 +42,22 @@ self.addEventListener('fetch', (event) => {
       url.hostname.endsWith('.googleapis.com') ||
       url.hostname.endsWith('.google.com')) {
     event.respondWith(fetch(event.request));
+    return;
+  }
+
+  // Always try network first for navigations (index.html), fallback to cache offline.
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
+          return networkResponse;
+        })
+        .catch(() => caches.match(event.request).then((cached) => cached || caches.match('./index.html')))
+    );
     return;
   }
 
