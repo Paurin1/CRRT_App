@@ -8,6 +8,37 @@
    Configuration
    ============================================================ */
 const CONFIG_KEY = 'crrt_app_config';
+const DEMO_MODE = true;
+
+const DEMO_PATIENTS = [
+  {
+    id: 'P-001',
+    name: 'Anna Kowalska',
+    dateOfBirth: '1978-04-12',
+    ward: 'ICU',
+    diagnosis: 'Septic shock',
+    admissionDate: '2026-03-30',
+    notes: ''
+  },
+  {
+    id: 'P-002',
+    name: 'Jan Nowak',
+    dateOfBirth: '1965-11-02',
+    ward: 'Nephrology',
+    diagnosis: 'AKI',
+    admissionDate: '2026-04-01',
+    notes: ''
+  },
+  {
+    id: 'P-003',
+    name: 'Maria Wisniewska',
+    dateOfBirth: '1959-08-19',
+    ward: 'ICU',
+    diagnosis: 'Cardiogenic shock',
+    admissionDate: '2026-04-02',
+    notes: ''
+  }
+];
 
 function loadConfig() {
   try {
@@ -20,6 +51,24 @@ function loadConfig() {
 
 function saveConfig(cfg) {
   localStorage.setItem(CONFIG_KEY, JSON.stringify(cfg));
+}
+
+function getDemoEntriesKey(patientId) {
+  return `crrt_demo_entries_${patientId}`;
+}
+
+function loadDemoEntries(patientId) {
+  try {
+    const raw = localStorage.getItem(getDemoEntriesKey(patientId));
+    const entries = raw ? JSON.parse(raw) : [];
+    return Array.isArray(entries) ? entries : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveDemoEntries(patientId, entries) {
+  localStorage.setItem(getDemoEntriesKey(patientId), JSON.stringify(entries));
 }
 
 /* ============================================================
@@ -72,10 +121,11 @@ const dom = {
   crrtForm:          $('crrt-form'),
   entryDate:         $('entry-date'),
   entryTime:         $('entry-time'),
-  replacementMode:   $('replacement-mode'),
-  prePostFields:     $('pre-post-fields'),
-  anticoagType:      $('anticoag-type'),
-  anticoagDoseGroup: $('anticoag-dose-group'),
+  bloodFlow:         $('blood-flow'),
+  substituteFlow:    $('substitute-flow'),
+  dialysateFlow:     $('dialysate-flow'),
+  ultrafiltration:   $('ultrafiltration'),
+  dialysisDose:      $('dialysis-dose'),
   clearFormBtn:      $('clear-form-btn'),
   submitBtn:         $('submit-btn'),
   formError:         $('form-error'),
@@ -149,7 +199,7 @@ function initGisClient(clientId) {
     scope: SCOPES,
     callback: (tokenResponse) => {
       if (tokenResponse.error) {
-        showToast('Authentication failed: ' + tokenResponse.error, 'error');
+        showToast('Logowanie nie powiodlo sie: ' + tokenResponse.error, 'error');
         return;
       }
       state.isSignedIn = true;
@@ -170,7 +220,7 @@ function updateAuthUI() {
     dom.userInfo.style.alignItems = 'center';
     dom.userInfo.style.gap = '8px';
     dom.userAvatar.style.display = 'none';
-    dom.userName.textContent = 'Signed In';
+    dom.userName.textContent = 'Zalogowano';
   } else {
     dom.signInBtn.style.display = '';
     dom.userInfo.style.display = 'none';
@@ -179,7 +229,7 @@ function updateAuthUI() {
 
 dom.signInBtn.addEventListener('click', () => {
   if (!state.gisReady) {
-    showToast('Authentication not ready yet. Please wait.', 'error');
+    showToast('Logowanie nie jest jeszcze gotowe. Poczekaj chwile.', 'error');
     return;
   }
   state.tokenClient.requestAccessToken({ prompt: 'consent' });
@@ -198,7 +248,7 @@ dom.signOutBtn.addEventListener('click', () => {
       updatePatientBanner();
       dom.mainContent.style.display = 'none';
       dom.bottomNav.style.display = 'none';
-      showToast('Signed out successfully.');
+      showToast('Wylogowano pomyslnie.');
     });
   }
 });
@@ -209,7 +259,7 @@ dom.signOutBtn.addEventListener('click', () => {
 async function onSignedIn() {
   dom.mainContent.style.display = 'block';
   dom.bottomNav.style.display = 'flex';
-  showToast('Signed in successfully!', 'success');
+  showToast('Zalogowano pomyslnie.', 'success');
 
   const cfg = loadConfig();
   SheetsService.setSpreadsheetId(cfg.spreadsheetId);
@@ -248,11 +298,15 @@ async function loadPatients() {
   dom.patientList.innerHTML = '';
 
   try {
-    state.patients = await SheetsService.getPatients();
+    if (DEMO_MODE) {
+      state.patients = DEMO_PATIENTS;
+    } else {
+      state.patients = await SheetsService.getPatients();
+    }
     renderPatients(state.patients);
   } catch (err) {
     console.error('loadPatients error:', err);
-    showToast('Error loading patients: ' + (err.result?.error?.message || err.message || 'Unknown error'), 'error', 5000);
+    showToast('Blad ladowania pacjentow: ' + (err.result?.error?.message || err.message || 'Nieznany blad'), 'error', 5000);
     dom.patientsLoading.style.display = 'none';
     dom.patientsEmpty.style.display = 'flex';
   }
@@ -307,7 +361,7 @@ function renderPatients(patients) {
       updateEntryTabVisibility();
       updateViewTabVisibility();
       renderPatients(filterPatients(dom.patientSearch.value));
-      showToast(`Patient selected: ${patient.name}`, 'success');
+      showToast(`Wybrano pacjenta: ${patient.name}`, 'success');
       setTimeout(() => switchTab('entry'), 400);
     };
 
@@ -363,23 +417,26 @@ function prefillDateTime() {
   dom.entryTime.value = now.toTimeString().slice(0, 5);
 }
 
-// Show/hide pre+post fraction fields
-dom.replacementMode.addEventListener('change', () => {
-  dom.prePostFields.style.display =
-    dom.replacementMode.value === 'pre-post' ? 'block' : 'none';
-});
+function calculateDialysisDose() {
+  const substitute = Number(dom.substituteFlow?.value || 0);
+  const dialysate = Number(dom.dialysateFlow?.value || 0);
+  const uf = Number(dom.ultrafiltration?.value || 0);
+  const dose = substitute + dialysate + uf;
+  if (dom.dialysisDose) {
+    dom.dialysisDose.value = Number.isFinite(dose) ? String(dose) : '';
+  }
+}
 
-// Show/hide anticoag dose
-dom.anticoagType.addEventListener('change', () => {
-  dom.anticoagDoseGroup.style.display =
-    dom.anticoagType.value ? 'block' : 'none';
+[dom.substituteFlow, dom.dialysateFlow, dom.ultrafiltration].forEach((el) => {
+  if (el) {
+    el.addEventListener('input', calculateDialysisDose);
+  }
 });
 
 dom.clearFormBtn.addEventListener('click', () => {
   dom.crrtForm.reset();
   prefillDateTime();
-  dom.prePostFields.style.display = 'none';
-  dom.anticoagDoseGroup.style.display = 'none';
+  calculateDialysisDose();
   dom.formError.style.display = 'none';
   dom.formSuccess.style.display = 'none';
   clearFormErrors();
@@ -392,38 +449,36 @@ dom.crrtForm.addEventListener('submit', async (e) => {
   clearFormErrors();
 
   if (!state.selectedPatient) {
-    showAlert(dom.formError, 'Please select a patient first.');
+    showAlert(dom.formError, 'Najpierw wybierz pacjenta.');
     return;
   }
 
   // Basic validation
   if (!dom.entryDate.value) {
-    markInvalid(dom.entryDate, dom.formError, 'Date is required.');
+    markInvalid(dom.entryDate, dom.formError, 'Pole data jest wymagane.');
     return;
   }
   if (!dom.entryTime.value) {
-    markInvalid(dom.entryTime, dom.formError, 'Time is required.');
+    markInvalid(dom.entryTime, dom.formError, 'Pole godzina jest wymagane.');
     return;
   }
 
   const entry = {
     date:             dom.entryDate.value,
     time:             dom.entryTime.value,
+    substituteFlow:   $('substitute-flow').value,
     bloodFlow:        $('blood-flow').value,
     dialysateFlow:    $('dialysate-flow').value,
-    substituteFlow:   $('substitute-flow').value,
-    effluentRate:     $('effluent-rate').value,
-    netFluidRemoval:  $('net-fluid-removal').value,
-    replacementMode:  dom.replacementMode.value,
-    preFraction:      $('pre-fraction').value,
-    postFraction:     $('post-fraction').value,
-    anticoagType:     dom.anticoagType.value,
-    anticoagDose:     $('anticoag-dose').value,
-    accessPressure:   $('access-pressure').value,
-    returnPressure:   $('return-pressure').value,
-    filterPressure:   $('filter-pressure').value,
-    effluentPressure: $('effluent-pressure').value,
-    tmp:              $('tmp').value,
+    citrateDose:      $('citrate-dose').value,
+    calciumDose:      $('calcium-dose').value,
+    ultrafiltration:  $('ultrafiltration').value,
+    postFilterCa:     $('post-filter-ca').value,
+    patientCa:        $('patient-ca').value,
+    dialysisDose:     $('dialysis-dose').value,
+    be:               $('be').value,
+    hco3:             $('hco3').value,
+    ph:               $('ph').value,
+    enteredBy:        $('entered-by').value,
     notes:            $('notes').value
   };
 
@@ -433,17 +488,22 @@ dom.crrtForm.addEventListener('submit', async (e) => {
   dom.submitBtn.querySelector('.btn-spinner').style.display = 'inline-flex';
 
   try {
-    await SheetsService.appendCRRTEntry(state.selectedPatient.id, entry);
+    if (DEMO_MODE) {
+      const demoEntries = loadDemoEntries(state.selectedPatient.id);
+      demoEntries.unshift({ patientId: state.selectedPatient.id, ...entry });
+      saveDemoEntries(state.selectedPatient.id, demoEntries);
+    } else {
+      await SheetsService.appendCRRTEntry(state.selectedPatient.id, entry);
+    }
     showAlert(dom.formSuccess, 'Entry saved successfully!');
-    showToast('Entry saved!', 'success');
+    showToast('Wpis zapisany.', 'success');
     // Clear the form except date/time
     dom.crrtForm.reset();
     prefillDateTime();
-    dom.prePostFields.style.display = 'none';
-    dom.anticoagDoseGroup.style.display = 'none';
+    calculateDialysisDose();
   } catch (err) {
     console.error('appendCRRTEntry error:', err);
-    showAlert(dom.formError, 'Error saving entry: ' + (err.result?.error?.message || err.message || 'Unknown error'));
+    showAlert(dom.formError, 'Blad zapisu wpisu: ' + (err.result?.error?.message || err.message || 'Nieznany blad'));
   } finally {
     dom.submitBtn.disabled = false;
     dom.submitBtn.querySelector('.btn-text').style.display = '';
@@ -488,11 +548,16 @@ async function loadPatientData() {
   dom.dataContainer.style.display = 'none';
 
   try {
-    state.patientData = await SheetsService.getPatientData(state.selectedPatient.id);
+    if (DEMO_MODE) {
+      state.patientData = loadDemoEntries(state.selectedPatient.id)
+        .sort((a, b) => `${b.date}T${b.time}`.localeCompare(`${a.date}T${a.time}`));
+    } else {
+      state.patientData = await SheetsService.getPatientData(state.selectedPatient.id);
+    }
     renderPatientData(state.patientData);
   } catch (err) {
     console.error('loadPatientData error:', err);
-    showToast('Error loading data: ' + (err.result?.error?.message || err.message || 'Unknown error'), 'error', 5000);
+    showToast('Blad ladowania danych: ' + (err.result?.error?.message || err.message || 'Nieznany blad'), 'error', 5000);
     dom.dataLoading.style.display = 'none';
     dom.dataEmpty.style.display = 'flex';
   }
@@ -519,12 +584,12 @@ function renderSummaryCards(data) {
   const latest = data[0]; // already sorted descending
 
   const metrics = [
-    { label: 'Blood Flow (mL/min)', value: latest.bloodFlow, unit: '' },
-    { label: 'Dialysate Flow (mL/h)', value: latest.dialysateFlow, unit: '' },
-    { label: 'Substitute Flow (mL/h)', value: latest.substituteFlow, unit: '' },
-    { label: 'Effluent Rate (mL/h)', value: latest.effluentRate, unit: '' },
-    { label: 'Net Fluid (mL/h)', value: latest.netFluidRemoval, unit: '' },
-    { label: 'TMP (mmHg)', value: latest.tmp, unit: '' }
+    { label: 'Krew (ml/min)', value: latest.bloodFlow, unit: '' },
+    { label: 'Substytut (ml/h)', value: latest.substituteFlow, unit: '' },
+    { label: 'Dializat (ml/h)', value: latest.dialysateFlow, unit: '' },
+    { label: 'UF (ml/h)', value: latest.ultrafiltration, unit: '' },
+    { label: 'Dawka dializy (ml/h)', value: latest.dialysisDose, unit: '' },
+    { label: 'Ca2+ pacjenta (mmol/l)', value: latest.patientCa, unit: '' }
   ];
 
   dom.summaryCards.innerHTML = metrics
@@ -547,17 +612,18 @@ function renderDataTable(data) {
     tr.innerHTML = `
       <td class="sticky-col">${escapeHtml(row.date)}<br/><small>${escapeHtml(row.time)}</small></td>
       <td>${escapeHtml(row.bloodFlow)}</td>
-      <td>${escapeHtml(row.dialysateFlow)}</td>
       <td>${escapeHtml(row.substituteFlow)}</td>
-      <td>${escapeHtml(row.effluentRate)}</td>
-      <td>${escapeHtml(row.netFluidRemoval)}</td>
-      <td>${escapeHtml(row.replacementMode)}</td>
-      <td>${escapeHtml(row.anticoagType)}</td>
-      <td>${escapeHtml(row.anticoagDose)}</td>
-      <td>${escapeHtml(row.accessPressure)}</td>
-      <td>${escapeHtml(row.returnPressure)}</td>
-      <td>${escapeHtml(row.filterPressure)}</td>
-      <td>${escapeHtml(row.tmp)}</td>
+      <td>${escapeHtml(row.dialysateFlow)}</td>
+      <td>${escapeHtml(row.citrateDose)}</td>
+      <td>${escapeHtml(row.calciumDose)}</td>
+      <td>${escapeHtml(row.ultrafiltration)}</td>
+      <td>${escapeHtml(row.postFilterCa)}</td>
+      <td>${escapeHtml(row.patientCa)}</td>
+      <td>${escapeHtml(row.dialysisDose)}</td>
+      <td>${escapeHtml(row.be)}</td>
+      <td>${escapeHtml(row.hco3)}</td>
+      <td>${escapeHtml(row.ph)}</td>
+      <td>${escapeHtml(row.enteredBy)}</td>
       <td class="notes-cell">${escapeHtml(row.notes)}</td>
     `;
     fragment.appendChild(tr);
@@ -589,7 +655,7 @@ dom.saveConfigBtn.addEventListener('click', async () => {
   const apiKey        = dom.apiKeyInput.value.trim();
 
   if (!spreadsheetId || !clientId || !apiKey) {
-    dom.configError.textContent = 'All fields are required.';
+    dom.configError.textContent = 'Wszystkie pola sa wymagane.';
     dom.configError.style.display = 'block';
     return;
   }
@@ -610,7 +676,7 @@ async function bootApis(clientId, apiKey) {
     await initGapiClient(apiKey);
   } catch (err) {
     console.error('gapi init error:', err);
-    showToast('Failed to initialise Google API. Check your API Key.', 'error', 6000);
+    showToast('Nie udalo sie uruchomic Google API. Sprawdz klucz API.', 'error', 6000);
     return;
   }
 
@@ -629,7 +695,7 @@ async function bootApis(clientId, apiKey) {
             elapsed += intervalMs;
             if (elapsed >= maxWaitMs) {
               clearInterval(check);
-              reject(new Error('Google Identity Services library failed to load.'));
+              reject(new Error('Nie udalo sie zaladowac biblioteki Google Identity Services.'));
             }
           }
         }, intervalMs);
@@ -637,13 +703,13 @@ async function bootApis(clientId, apiKey) {
     }
   } catch (err) {
     console.error('GIS load error:', err);
-    showToast('Failed to load Google Identity Services. Check your network connection.', 'error', 6000);
+    showToast('Nie udalo sie zaladowac Google Identity Services. Sprawdz polaczenie sieciowe.', 'error', 6000);
     return;
   }
 
   initGisClient(clientId);
   dom.signInBtn.style.display = '';
-  showToast('Ready! Please sign in to continue.', '', 4000);
+  showToast('Gotowe. Zaloguj sie, aby kontynuowac.', '', 4000);
 }
 
 async function init() {
@@ -654,6 +720,22 @@ async function init() {
     } catch (err) {
       console.warn('Service Worker registration failed:', err);
     }
+  }
+
+  if (DEMO_MODE) {
+    // Preview mode: show UI without Google configuration/auth.
+    dom.configModal.style.display = 'none';
+    dom.signInBtn.style.display = 'none';
+    dom.userInfo.style.display = 'none';
+    dom.mainContent.style.display = 'block';
+    dom.bottomNav.style.display = 'flex';
+    prefillDateTime();
+    calculateDialysisDose();
+    updateEntryTabVisibility();
+    updateViewTabVisibility();
+    await loadPatients();
+    showToast('Tryb podgladu wlaczony. Google Sheets jest tymczasowo wylaczone.', 'success', 4500);
+    return;
   }
 
   const cfg = loadConfig();

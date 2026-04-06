@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#1565C0" />
-  <meta name="description" content="CRRT App – Continuous Renal Replacement Therapy data management" />
+  <meta name="description" content="CRRT App – aplikacja do dokumentacji terapii CRRT" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -28,7 +28,7 @@
           <div id="user-info" style="display:none;">
             <img id="user-avatar" src="" alt="User" class="avatar" />
             <span id="user-name" class="user-name"></span>
-            <button id="sign-out-btn" class="btn btn-outline-white btn-sm">Sign Out</button>
+            <button id="sign-out-btn" class="btn btn-outline-white btn-sm">Wyloguj</button>
           </div>
         </div>
       </div>
@@ -68,9 +68,9 @@
 
   <!-- Selected Patient Banner -->
   <div id="patient-banner" class="patient-banner" style="display:none;">
-    <span class="patient-banner-label">Selected Patient:</span>
+    <span class="patient-banner-label">Wybrany pacjent:</span>
     <span id="banner-patient-name" class="patient-banner-name"></span>
-    <button id="change-patient-btn" class="btn btn-xs btn-outline-white">Change</button>
+    <button id="change-patient-btn" class="btn btn-xs btn-outline-white">Zmień</button>
   </div>
 
   <!-- Main Content -->
@@ -79,8 +79,8 @@
     <!-- Tab 1: Patient Selection -->
     <section id="tab-patients" class="tab-content active">
       <div class="section-header">
-        <h2>Select Patient</h2>
-        <button id="refresh-patients-btn" class="btn btn-icon" title="Refresh patient list">
+        <h2>Wybór pacjenta</h2>
+        <button id="refresh-patients-btn" class="btn btn-icon" title="Odśwież listę pacjentów">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="23 4 23 10 17 10"></polyline>
@@ -96,12 +96,12 @@
           <circle cx="11" cy="11" r="8"></circle>
           <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
         </svg>
-        <input type="search" id="patient-search" class="search-input" placeholder="Search patients…" />
+        <input type="search" id="patient-search" class="search-input" placeholder="Szukaj pacjenta…" />
       </div>
 
       <div id="patients-loading" class="loading-state" style="display:none;">
         <div class="spinner"></div>
-        <p>Loading patients…</p>
+        <p>Ładowanie pacjentów…</p>
       </div>
 
       <div id="patients-empty" class="empty-state" style="display:none;">
@@ -112,7 +112,7 @@
           <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
           <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
         </svg>
-        <p>No patients found.<br/>Make sure your spreadsheet has a <strong>Patients</strong> sheet.</p>
+        <p>Brak pacjentów do wyświetlenia.</p>
       </div>
 
       <ul id="patient-list" class="patient-list"></ul>
@@ -121,7 +121,7 @@
     <!-- Tab 2: CRRT Parameters Entry -->
     <section id="tab-entry" class="tab-content">
       <div class="section-header">
-        <h2>CRRT Parameters</h2>
+        <h2>Parametry CRRT</h2>
       </div>
 
       <div id="no-patient-selected" class="info-banner">
@@ -131,141 +131,106 @@
           <line x1="12" y1="8" x2="12" y2="12"></line>
           <line x1="12" y1="16" x2="12.01" y2="16"></line>
         </svg>
-        <span>Please select a patient from the <strong>Patients</strong> tab first.</span>
+        <span>Najpierw wybierz pacjenta w zakładce <strong>Pacjenci</strong>.</span>
       </div>
 
       <form id="crrt-form" class="crrt-form" style="display:none;" novalidate>
         <div class="form-card">
-          <h3 class="form-card-title">Date &amp; Time</h3>
+          <h3 class="form-card-title">Data i godzina</h3>
           <div class="form-row">
             <div class="form-group">
-              <label for="entry-date">Date <span class="required">*</span></label>
+              <label for="entry-date">Data <span class="required">*</span></label>
               <input type="date" id="entry-date" name="date" class="form-control" required />
             </div>
             <div class="form-group">
-              <label for="entry-time">Time <span class="required">*</span></label>
+              <label for="entry-time">Godzina <span class="required">*</span></label>
               <input type="time" id="entry-time" name="time" class="form-control" required />
             </div>
           </div>
         </div>
 
         <div class="form-card">
-          <h3 class="form-card-title">Flow Rates</h3>
+          <h3 class="form-card-title">Przepływy</h3>
           <div class="form-group">
-            <label for="blood-flow">Blood Flow Rate (Qb) <span class="unit">mL/min</span></label>
+            <label for="blood-flow">Przepływ krwi <span class="unit">ml/min</span></label>
             <input type="number" id="blood-flow" name="bloodFlow" class="form-control"
                    min="0" max="500" step="1" placeholder="e.g. 150" />
           </div>
           <div class="form-group">
-            <label for="dialysate-flow">Dialysate Flow Rate (Qd) <span class="unit">mL/h</span></label>
-            <input type="number" id="dialysate-flow" name="dialysateFlow" class="form-control"
-                   min="0" max="5000" step="10" placeholder="e.g. 1000" />
-          </div>
-          <div class="form-group">
-            <label for="substitute-flow">Substitute Flow Rate (Qs) <span class="unit">mL/h</span></label>
+            <label for="substitute-flow">Przepływ substytutu <span class="unit">ml/h</span></label>
             <input type="number" id="substitute-flow" name="substituteFlow" class="form-control"
-                   min="0" max="5000" step="10" placeholder="e.g. 1000" />
+                   min="0" max="5000" step="10" placeholder="np. 1000" />
           </div>
           <div class="form-group">
-            <label for="effluent-rate">Effluent Rate <span class="unit">mL/h</span></label>
-            <input type="number" id="effluent-rate" name="effluentRate" class="form-control"
-                   min="0" max="8000" step="10" placeholder="e.g. 2000" />
+            <label for="dialysate-flow">Przepływ dializatu <span class="unit">ml/h</span></label>
+            <input type="number" id="dialysate-flow" name="dialysateFlow" class="form-control"
+                   min="0" max="5000" step="10" placeholder="np. 1000" />
           </div>
           <div class="form-group">
-            <label for="net-fluid-removal">Net Fluid Removal <span class="unit">mL/h</span></label>
-            <input type="number" id="net-fluid-removal" name="netFluidRemoval" class="form-control"
-                   min="-500" max="1000" step="1" placeholder="e.g. 100" />
+            <label for="ultrafiltration">Ultrafiltracja <span class="unit">ml/h</span></label>
+            <input type="number" id="ultrafiltration" name="ultrafiltration" class="form-control"
+                   min="0" max="5000" step="10" placeholder="np. 100" />
           </div>
         </div>
 
         <div class="form-card">
-          <h3 class="form-card-title">Replacement Fluid</h3>
+          <h3 class="form-card-title">Cytrynian i wapń</h3>
           <div class="form-group">
-            <label for="replacement-mode">Replacement Mode</label>
-            <select id="replacement-mode" name="replacementMode" class="form-control">
-              <option value="">— Select —</option>
-              <option value="pre">Pre-filter</option>
-              <option value="post">Post-filter</option>
-              <option value="pre-post">Pre + Post filter</option>
-            </select>
+            <label for="citrate-dose">Dawka cytrynianu <span class="unit">mmol/l</span></label>
+            <input type="number" id="citrate-dose" name="citrateDose" class="form-control"
+                   min="0" max="20" step="0.01" placeholder="np. 3.0" />
           </div>
-          <div id="pre-post-fields" style="display:none;">
-            <div class="form-row">
-              <div class="form-group">
-                <label for="pre-fraction">Pre-filter fraction <span class="unit">%</span></label>
-                <input type="number" id="pre-fraction" name="preFraction" class="form-control"
-                       min="0" max="100" step="1" placeholder="e.g. 30" />
-              </div>
-              <div class="form-group">
-                <label for="post-fraction">Post-filter fraction <span class="unit">%</span></label>
-                <input type="number" id="post-fraction" name="postFraction" class="form-control"
-                       min="0" max="100" step="1" placeholder="e.g. 70" />
-              </div>
-            </div>
+          <div class="form-group">
+            <label for="calcium-dose">Dawka wapnia <span class="unit">mmol/l</span></label>
+            <input type="number" id="calcium-dose" name="calciumDose" class="form-control"
+                   min="0" max="20" step="0.01" placeholder="np. 1.5" />
+          </div>
+          <div class="form-group">
+            <label for="post-filter-ca">Poziom Ca2+ za filtrem <span class="unit">mmol/l</span></label>
+            <input type="number" id="post-filter-ca" name="postFilterCa" class="form-control"
+                   min="0" max="5" step="0.01" placeholder="np. 0.35" />
+          </div>
+          <div class="form-group">
+            <label for="patient-ca">Poziom Ca2+ pacjenta <span class="unit">mmol/l</span></label>
+            <input type="number" id="patient-ca" name="patientCa" class="form-control"
+                   min="0" max="5" step="0.01" placeholder="np. 1.10" />
           </div>
         </div>
 
         <div class="form-card">
-          <h3 class="form-card-title">Anticoagulation</h3>
+          <h3 class="form-card-title">Gazometria i dawka dializy</h3>
           <div class="form-group">
-            <label for="anticoag-type">Type</label>
-            <select id="anticoag-type" name="anticoagType" class="form-control">
-              <option value="">— None —</option>
-              <option value="heparin">Heparin</option>
-              <option value="citrate">Citrate</option>
-              <option value="argatroban">Argatroban</option>
-              <option value="nafamostat">Nafamostat</option>
-              <option value="other">Other</option>
-            </select>
+            <label for="dialysis-dose">Dawka dializy (wyliczana) <span class="unit">ml/h</span></label>
+            <input type="number" id="dialysis-dose" name="dialysisDose" class="form-control" readonly />
           </div>
-          <div id="anticoag-dose-group" style="display:none;">
-            <div class="form-group">
-              <label for="anticoag-dose">Dose <span class="unit">units/h</span></label>
-              <input type="number" id="anticoag-dose" name="anticoagDose" class="form-control"
-                     min="0" step="0.1" placeholder="e.g. 500" />
-            </div>
+          <div class="form-group">
+            <label for="be">BE <span class="unit">mmol/l</span></label>
+            <input type="number" id="be" name="be" class="form-control"
+                   min="-50" max="50" step="0.1" placeholder="np. -4.5" />
+          </div>
+          <div class="form-group">
+            <label for="hco3">HCO3- <span class="unit">mmol/l</span></label>
+            <input type="number" id="hco3" name="hco3" class="form-control"
+                   min="0" max="60" step="0.1" placeholder="np. 22.0" />
+          </div>
+          <div class="form-group">
+            <label for="ph">pH</label>
+            <input type="number" id="ph" name="ph" class="form-control"
+                   min="6.8" max="7.8" step="0.01" placeholder="np. 7.35" />
           </div>
         </div>
 
         <div class="form-card">
-          <h3 class="form-card-title">Pressures</h3>
-          <div class="form-row">
-            <div class="form-group">
-              <label for="access-pressure">Access Pressure <span class="unit">mmHg</span></label>
-              <input type="number" id="access-pressure" name="accessPressure" class="form-control"
-                     min="-300" max="0" step="1" placeholder="e.g. -150" />
-            </div>
-            <div class="form-group">
-              <label for="return-pressure">Return Pressure <span class="unit">mmHg</span></label>
-              <input type="number" id="return-pressure" name="returnPressure" class="form-control"
-                     min="0" max="300" step="1" placeholder="e.g. 100" />
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label for="filter-pressure">Filter Pressure <span class="unit">mmHg</span></label>
-              <input type="number" id="filter-pressure" name="filterPressure" class="form-control"
-                     min="0" max="300" step="1" placeholder="e.g. 50" />
-            </div>
-            <div class="form-group">
-              <label for="effluent-pressure">Effluent Pressure <span class="unit">mmHg</span></label>
-              <input type="number" id="effluent-pressure" name="effluentPressure" class="form-control"
-                     min="-300" max="0" step="1" placeholder="e.g. -50" />
-            </div>
+          <h3 class="form-card-title">Osoba wprowadzająca i uwagi</h3>
+          <div class="form-group">
+            <label for="entered-by">Dane osoby wprowadzającej</label>
+            <input type="text" id="entered-by" name="enteredBy" class="form-control"
+                   placeholder="Imię i nazwisko / stanowisko" />
           </div>
           <div class="form-group">
-            <label for="tmp">Transmembrane Pressure (TMP) <span class="unit">mmHg</span></label>
-            <input type="number" id="tmp" name="tmp" class="form-control"
-                   min="0" max="400" step="1" placeholder="e.g. 80" />
-          </div>
-        </div>
-
-        <div class="form-card">
-          <h3 class="form-card-title">Notes</h3>
-          <div class="form-group">
-            <label for="notes">Clinical Notes</label>
+            <label for="notes">Uwagi kliniczne</label>
             <textarea id="notes" name="notes" class="form-control" rows="3"
-                      placeholder="Any relevant clinical observations…"></textarea>
+                      placeholder="Dodatkowe informacje…"></textarea>
           </div>
         </div>
 
@@ -273,9 +238,9 @@
         <div id="form-success" class="alert alert-success" style="display:none;"></div>
 
         <div class="form-actions">
-          <button type="button" id="clear-form-btn" class="btn btn-secondary">Clear</button>
+          <button type="button" id="clear-form-btn" class="btn btn-secondary">Wyczyść</button>
           <button type="submit" id="submit-btn" class="btn btn-primary">
-            <span class="btn-text">Save Entry</span>
+            <span class="btn-text">Zapisz wpis</span>
             <span class="btn-spinner" style="display:none;"><div class="spinner spinner-sm"></div></span>
           </button>
         </div>
@@ -285,8 +250,8 @@
     <!-- Tab 3: View Patient Data -->
     <section id="tab-view" class="tab-content">
       <div class="section-header">
-        <h2>Patient Data</h2>
-        <button id="refresh-data-btn" class="btn btn-icon" title="Refresh data">
+        <h2>Dane pacjenta</h2>
+        <button id="refresh-data-btn" class="btn btn-icon" title="Odśwież dane">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="23 4 23 10 17 10"></polyline>
@@ -303,12 +268,12 @@
           <line x1="12" y1="8" x2="12" y2="12"></line>
           <line x1="12" y1="16" x2="12.01" y2="16"></line>
         </svg>
-        <span>Please select a patient from the <strong>Patients</strong> tab first.</span>
+        <span>Najpierw wybierz pacjenta w zakładce <strong>Pacjenci</strong>.</span>
       </div>
 
       <div id="data-loading" class="loading-state" style="display:none;">
         <div class="spinner"></div>
-        <p>Loading patient data…</p>
+        <p>Ładowanie danych pacjenta…</p>
       </div>
 
       <div id="data-empty" class="empty-state" style="display:none;">
@@ -320,8 +285,8 @@
           <line x1="16" y1="17" x2="8" y2="17"></line>
           <polyline points="10 9 9 9 8 9"></polyline>
         </svg>
-        <p>No data recorded yet for this patient.</p>
-        <button class="btn btn-primary btn-sm" id="add-first-entry-btn">Add First Entry</button>
+        <p>Brak wpisów dla tego pacjenta.</p>
+        <button class="btn btn-primary btn-sm" id="add-first-entry-btn">Dodaj pierwszy wpis</button>
       </div>
 
       <div id="data-container" style="display:none;">
@@ -333,20 +298,21 @@
           <table id="data-table" class="data-table">
             <thead>
               <tr>
-                <th class="sticky-col">Date/Time</th>
-                <th>Qb (mL/min)</th>
-                <th>Qd (mL/h)</th>
-                <th>Qs (mL/h)</th>
-                <th>Effluent (mL/h)</th>
-                <th>Net Fluid (mL/h)</th>
-                <th>Replacement</th>
-                <th>Anticoag</th>
-                <th>Dose</th>
-                <th>Access P (mmHg)</th>
-                <th>Return P (mmHg)</th>
-                <th>Filter P (mmHg)</th>
-                <th>TMP (mmHg)</th>
-                <th>Notes</th>
+                <th class="sticky-col">Data/Godzina</th>
+                <th>Krew (ml/min)</th>
+                <th>Substytut (ml/h)</th>
+                <th>Dializat (ml/h)</th>
+                <th>Cytrynian (mmol/l)</th>
+                <th>Wapń (mmol/l)</th>
+                <th>UF (ml/h)</th>
+                <th>Ca2+ filtr (mmol/l)</th>
+                <th>Ca2+ pacjent (mmol/l)</th>
+                <th>Dawka dializy (ml/h)</th>
+                <th>BE (mmol/l)</th>
+                <th>HCO3- (mmol/l)</th>
+                <th>pH</th>
+                <th>Wprowadził(a)</th>
+                <th>Uwagi</th>
               </tr>
             </thead>
             <tbody id="data-table-body"></tbody>
@@ -366,7 +332,7 @@
         <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
         <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
       </svg>
-      <span>Patients</span>
+      <span>Pacjenci</span>
     </button>
     <button class="nav-item" data-tab="entry">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
@@ -374,7 +340,7 @@
         <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
         <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
       </svg>
-      <span>Entry</span>
+      <span>Wpis</span>
     </button>
     <button class="nav-item" data-tab="view">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
@@ -384,7 +350,7 @@
         <rect x="14" y="14" width="7" height="7"></rect>
         <rect x="3" y="14" width="7" height="7"></rect>
       </svg>
-      <span>View</span>
+      <span>Podgląd</span>
     </button>
   </nav>
 
