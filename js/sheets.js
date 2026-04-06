@@ -4,7 +4,8 @@
  * Expected spreadsheet structure:
  *
  *  Sheet: "Patients"
- *  Columns: PatientID | Name | DateOfBirth | Ward | Diagnosis | AdmissionDate | Notes
+ *  Columns: PatientID | FirstName | LastName | DateOfBirth | PESEL | Sex |
+ *           WeightKg | HeightCm | CaseNumber | Machine | Set | Scheme | CvcAccessSite | Notes
  *
  *  Sheet: "CRRT_Data"
  *  Columns: PatientID | Date | Time | BloodFlow | SubstituteFlow | DialysateFlow |
@@ -18,11 +19,15 @@ const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
 /** Sheets service exposed globally for use by app.js */
 const SheetsService = (() => {
   // Sheet / range constants
-  const PATIENTS_RANGE = 'Patients!A2:G';
+  const PATIENTS_RANGE = 'Patients!A2:N';
+  const PATIENTS_APPEND_RANGE = 'Patients!A:N';
   const CRRT_DATA_RANGE = 'CRRT_Data!A2:Q';
   const CRRT_DATA_APPEND_RANGE = 'CRRT_Data!A:Q';
 
-  const PATIENTS_HEADERS = ['PatientID', 'Name', 'DateOfBirth', 'Ward', 'Diagnosis', 'AdmissionDate', 'Notes'];
+  const PATIENTS_HEADERS = [
+    'PatientID', 'FirstName', 'LastName', 'DateOfBirth', 'PESEL', 'Sex',
+    'WeightKg', 'HeightCm', 'CaseNumber', 'Machine', 'Set', 'Scheme', 'CvcAccessSite', 'Notes'
+  ];
   const CRRT_HEADERS = [
     'PatientID', 'Date', 'Time', 'BloodFlow', 'SubstituteFlow', 'DialysateFlow',
     'CitrateDose', 'CalciumDose', 'Ultrafiltration', 'PostFilterCa', 'PatientCa',
@@ -111,16 +116,84 @@ const SheetsService = (() => {
 
     const rows = response.result.values || [];
     return rows
-      .filter((row) => row[0] && row[1]) // must have ID and Name
-      .map((row) => ({
-        id: row[0] || '',
-        name: row[1] || '',
-        dateOfBirth: row[2] || '',
-        ward: row[3] || '',
-        diagnosis: row[4] || '',
-        admissionDate: row[5] || '',
-        notes: row[6] || ''
-      }));
+      .filter((row) => row[0])
+      .map((row) => {
+        // Backward compatibility: old rows had [PatientID, Name, DateOfBirth, Ward, Diagnosis, AdmissionDate, Notes]
+        const isLegacyShape = row.length <= 7;
+        if (isLegacyShape) {
+          return {
+            id: row[0] || '',
+            firstName: row[1] || '',
+            lastName: '',
+            name: row[1] || '',
+            dateOfBirth: row[2] || '',
+            pesel: '',
+            sex: '',
+            weightKg: '',
+            heightCm: '',
+            caseNumber: '',
+            machine: '',
+            set: '',
+            scheme: '',
+            cvcAccessSite: '',
+            notes: row[6] || ''
+          };
+        }
+
+        const firstName = row[1] || '';
+        const lastName = row[2] || '';
+        return {
+          id: row[0] || '',
+          firstName,
+          lastName,
+          name: `${firstName} ${lastName}`.trim(),
+          dateOfBirth: row[3] || '',
+          pesel: row[4] || '',
+          sex: row[5] || '',
+          weightKg: row[6] || '',
+          heightCm: row[7] || '',
+          caseNumber: row[8] || '',
+          machine: row[9] || '',
+          set: row[10] || '',
+          scheme: row[11] || '',
+          cvcAccessSite: row[12] || '',
+          notes: row[13] || ''
+        };
+      });
+  }
+
+  /**
+   * Append a new patient row.
+   * @param {Object} patient
+   * @returns {Promise<void>}
+   */
+  async function addPatient(patient) {
+    if (!_spreadsheetId) throw new Error('Spreadsheet ID not configured.');
+
+    const row = [
+      patient.id || '',
+      patient.firstName || '',
+      patient.lastName || '',
+      patient.dateOfBirth || '',
+      patient.pesel || '',
+      patient.sex || '',
+      patient.weightKg || '',
+      patient.heightCm || '',
+      patient.caseNumber || '',
+      patient.machine || '',
+      patient.set || '',
+      patient.scheme || '',
+      patient.cvcAccessSite || '',
+      patient.notes || ''
+    ];
+
+    await gapi.client.sheets.spreadsheets.values.append({
+      spreadsheetId: _spreadsheetId,
+      range: PATIENTS_APPEND_RANGE,
+      valueInputOption: 'USER_ENTERED',
+      insertDataOption: 'INSERT_ROWS',
+      resource: { values: [row] }
+    });
   }
 
   /**
@@ -208,6 +281,7 @@ const SheetsService = (() => {
     setSpreadsheetId,
     getSpreadsheetId,
     ensureSheets,
+    addPatient,
     getPatients,
     getPatientData,
     appendCRRTEntry

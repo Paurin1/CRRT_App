@@ -167,6 +167,12 @@ body {
   color: var(--color-text);
 }
 
+.section-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 /* ---------- Search Bar ---------- */
 .search-bar {
   position: relative;
@@ -764,6 +770,12 @@ select.form-control {
   box-shadow: var(--shadow-lg);
 }
 
+.modal-content-wide {
+  max-width: 720px;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+}
+
 .modal-content h2 {
   font-size: 1.2rem;
   font-weight: 700;
@@ -794,6 +806,10 @@ select.form-control {
 @media (max-width: 380px) {
   .form-row { grid-template-columns: 1fr; }
   .summary-cards { grid-template-columns: repeat(2, 1fr); }
+  .section-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
 }
 
 /* ---------- Scrollbar ---------- */

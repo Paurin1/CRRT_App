@@ -1,4 +1,4 @@
-const CACHE_NAME = 'crrt-app-v2';
+const CACHE_NAME = 'crrt-app-v3';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -45,6 +45,14 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  const isSameOrigin = url.origin === self.location.origin;
+  const isAppAsset = isSameOrigin && (
+    url.pathname === '/' ||
+    url.pathname.endsWith('/index.html') ||
+    url.pathname.endsWith('.js') ||
+    url.pathname.endsWith('.css')
+  );
+
   // Always try network first for navigations (index.html), fallback to cache offline.
   if (event.request.mode === 'navigate') {
     event.respondWith(
@@ -57,6 +65,24 @@ self.addEventListener('fetch', (event) => {
           return networkResponse;
         })
         .catch(() => caches.match(event.request).then((cached) => cached || caches.match('./index.html')))
+    );
+    return;
+  }
+
+  // For same-origin app assets in development, prefer fresh network files.
+  if (isAppAsset) {
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseToCache);
+            });
+          }
+          return networkResponse;
+        })
+        .catch(() => caches.match(event.request))
     );
     return;
   }

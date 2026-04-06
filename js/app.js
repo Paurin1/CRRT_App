@@ -132,7 +132,26 @@ const dom = {
   patientList:      $('patient-list'),
   patientsLoading:  $('patients-loading'),
   patientsEmpty:    $('patients-empty'),
+  addPatientBtn:    $('add-patient-btn'),
+  addFirstPatientBtn: $('add-first-patient-btn'),
   refreshPatientsBtn: $('refresh-patients-btn'),
+  addPatientModal:  $('add-patient-modal'),
+  addPatientForm:   $('add-patient-form'),
+  newFirstName:     $('new-first-name'),
+  newLastName:      $('new-last-name'),
+  newDob:           $('new-dob'),
+  newPesel:         $('new-pesel'),
+  newSex:           $('new-sex'),
+  newWeight:        $('new-weight'),
+  newHeight:        $('new-height'),
+  newCaseNumber:    $('new-case-number'),
+  newMachine:       $('new-machine'),
+  newSet:           $('new-set'),
+  newScheme:        $('new-scheme'),
+  newCvcSite:       $('new-cvc-site'),
+  addPatientError:  $('add-patient-error'),
+  cancelAddPatientBtn: $('cancel-add-patient-btn'),
+  savePatientBtn:   $('save-patient-btn'),
   // Tab 2
   noPatientSelected: $('no-patient-selected'),
   crrtForm:          $('crrt-form'),
@@ -438,6 +457,108 @@ function updatePatientBanner() {
 
 dom.changePatientBtn.addEventListener('click', () => switchTab('patients'));
 
+function showAddPatientModal() {
+  if (!dom.addPatientModal) return;
+  dom.addPatientForm.reset();
+  dom.addPatientError.style.display = 'none';
+  dom.addPatientModal.style.display = 'flex';
+}
+
+function hideAddPatientModal() {
+  if (!dom.addPatientModal) return;
+  dom.addPatientModal.style.display = 'none';
+}
+
+function validateCaseNumber(value) {
+  return /^\d{6}\/\d{4}$/.test(value);
+}
+
+async function submitNewPatient(e) {
+  e.preventDefault();
+  dom.addPatientError.style.display = 'none';
+
+  const firstName = dom.newFirstName.value.trim();
+  const lastName = dom.newLastName.value.trim();
+  const dateOfBirth = dom.newDob.value;
+  const pesel = dom.newPesel.value.trim();
+  const sex = dom.newSex.value;
+  const weightKg = dom.newWeight.value;
+  const heightCm = dom.newHeight.value;
+  const caseNumber = dom.newCaseNumber.value.trim();
+  const machine = dom.newMachine.value;
+  const set = dom.newSet.value.trim();
+  const scheme = dom.newScheme.value.trim();
+  const cvcAccessSite = dom.newCvcSite.value.trim();
+
+  if (!firstName || !lastName) {
+    showAlert(dom.addPatientError, 'Imie i nazwisko sa wymagane.');
+    return;
+  }
+
+  if (!dateOfBirth && !pesel) {
+    showAlert(dom.addPatientError, 'Podaj date urodzenia lub PESEL.');
+    return;
+  }
+
+  if (pesel && !/^\d{11}$/.test(pesel)) {
+    showAlert(dom.addPatientError, 'PESEL musi miec 11 cyfr.');
+    return;
+  }
+
+  if (!validateCaseNumber(caseNumber)) {
+    showAlert(dom.addPatientError, 'Numer historii choroby musi miec format xxxxxx/YYYY.');
+    return;
+  }
+
+  const patientPayload = {
+    id: caseNumber,
+    firstName,
+    lastName,
+    name: `${firstName} ${lastName}`,
+    dateOfBirth,
+    pesel,
+    sex,
+    weightKg,
+    heightCm,
+    caseNumber,
+    machine,
+    set,
+    scheme,
+    cvcAccessSite,
+    notes: ''
+  };
+
+  dom.savePatientBtn.disabled = true;
+  try {
+    if (DEMO_MODE) {
+      state.patients.unshift(patientPayload);
+    } else {
+      await SheetsService.addPatient(patientPayload);
+      await loadPatients();
+    }
+
+    const freshPatient = state.patients.find((p) => p.id === patientPayload.id) || patientPayload;
+    state.selectedPatient = freshPatient;
+    updatePatientBanner();
+    updateEntryTabVisibility();
+    updateViewTabVisibility();
+    renderPatients(filterPatients(dom.patientSearch.value));
+    hideAddPatientModal();
+    showToast('Dodano nowego pacjenta.', 'success');
+    setTimeout(() => switchTab('entry'), 250);
+  } catch (err) {
+    console.error('addPatient error:', err);
+    showAlert(dom.addPatientError, 'Blad zapisu pacjenta: ' + (err.result?.error?.message || err.message || 'Nieznany blad'));
+  } finally {
+    dom.savePatientBtn.disabled = false;
+  }
+}
+
+if (dom.addPatientBtn) dom.addPatientBtn.addEventListener('click', showAddPatientModal);
+if (dom.addFirstPatientBtn) dom.addFirstPatientBtn.addEventListener('click', showAddPatientModal);
+if (dom.cancelAddPatientBtn) dom.cancelAddPatientBtn.addEventListener('click', hideAddPatientModal);
+if (dom.addPatientForm) dom.addPatientForm.addEventListener('submit', submitNewPatient);
+
 /* ============================================================
    Tab 1 – Patient List
    ============================================================ */
@@ -491,9 +612,10 @@ function renderPatients(patients) {
       <div class="patient-info">
         <div class="patient-name">${escapeHtml(patient.name)}</div>
         <div class="patient-meta">
-          ${patient.ward ? `Ward: ${escapeHtml(patient.ward)}` : ''}
-          ${patient.dateOfBirth ? ` · DOB: ${escapeHtml(patient.dateOfBirth)}` : ''}
-          ${patient.diagnosis ? ` · ${escapeHtml(patient.diagnosis)}` : ''}
+          ${patient.caseNumber ? `Nr historii: ${escapeHtml(patient.caseNumber)}` : ''}
+          ${patient.pesel ? ` · PESEL: ${escapeHtml(patient.pesel)}` : ''}
+          ${patient.dateOfBirth ? ` · ur. ${escapeHtml(patient.dateOfBirth)}` : ''}
+          ${patient.sex ? ` · ${escapeHtml(patient.sex)}` : ''}
         </div>
       </div>
       <div class="patient-chevron">
@@ -534,8 +656,10 @@ function filterPatients(query) {
   return state.patients.filter(
     (p) =>
       p.name.toLowerCase().includes(q) ||
-      p.ward.toLowerCase().includes(q) ||
-      p.diagnosis.toLowerCase().includes(q) ||
+      (p.firstName || '').toLowerCase().includes(q) ||
+      (p.lastName || '').toLowerCase().includes(q) ||
+      (p.caseNumber || '').toLowerCase().includes(q) ||
+      (p.pesel || '').toLowerCase().includes(q) ||
       p.id.toLowerCase().includes(q)
   );
 }
