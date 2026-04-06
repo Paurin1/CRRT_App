@@ -398,5 +398,28 @@
           onload="window.gapiLoaded = true; window.dispatchEvent(new Event('gapiloaded'))"></script>
   <script src="js/sheets.js"></script>
   <script src="js/app.js"></script>
+
+  <script type="module">
+    // Import the functions you need from the SDKs you need
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-analytics.js";
+    // TODO: Add SDKs for Firebase products that you want to use
+    // https://firebase.google.com/docs/web/setup#available-libraries
+  
+    // Your web app's Firebase configuration
+    // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+    const firebaseConfig = {
+      apiKey: "AIzaSyB-YeGluy_K9rh7526FKp4WoZsZKA4ziPo",
+      authDomain: "crrtapp-39d15.firebaseapp.com",
+      projectId: "crrtapp-39d15",
+      storageBucket: "crrtapp-39d15.firebasestorage.app",
+      messagingSenderId: "233995040558",
+      appId: "1:233995040558:web:618fb06b87955be7946cbf",
+      measurementId: "G-Z9HQFVVZG0"
+    };
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const analytics = getAnalytics(app);
+  </script>
 </body>
 </html>
